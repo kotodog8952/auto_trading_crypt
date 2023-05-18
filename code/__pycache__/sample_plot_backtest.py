@@ -1,5 +1,21 @@
+# -*- coding: utf-8 -*-
+# ---
+# jupyter:
+#   jupytext:
+#     cell_metadata_filter: -all
+#     custom_cell_magics: kql
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.11.2
+#   kernelspec:
+#     display_name: auto_trading
+#     language: python
+#     name: python3
+# ---
 
-
+# %%
 from datetime import timedelta, timezone, datetime
 import math
 import matplotlib.pyplot as plt
@@ -8,12 +24,15 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from matplotlib import pyplot as plt
+from utils.settings import *
 
+# %%
 symbol    = "BTCUSD"
 chart_min = 60 # 時間軸(1 3 5 15 30 60 120 240 360 720 )
 start     = '2022/01/01 09:00' # ローソク足取得開始時刻
 get_days  = 30 # 取得数[日]
 
+# %%
 # ローソク足のリサンプリング
 def resample_ohlc(org_df, timeframe):
    org_df.index = org_df.index - timedelta(hours=9)
@@ -27,6 +46,7 @@ def resample_ohlc(org_df, timeframe):
 
    return df
 
+# %%
 def get_price_from_API(chart_min,start):
     bybit = pybybit.API(testnet = False)
 
@@ -51,6 +71,7 @@ def get_price_from_API(chart_min,start):
 
     return pd.DataFrame(price)
 
+# %%
 # ローソク足データの読み込み
 df_all = get_price_from_API(chart_min,start)
 df_all.open_time = pd.to_datetime(df_all.open_time*10**9,)
@@ -58,10 +79,12 @@ df_all = df_all.set_index('open_time').tz_localize('UTC').tz_convert('Asia/Tokyo
 df_all.drop(["symbol"],axis = 1,inplace=True)
 df_all = df_all.astype('float')
 
+# %%
 # バックテスト区間を指定して5分足に変換
 df = resample_ohlc(df_all['2022/01/01':'2022/01/31'],5)
 print( df )
 
+# %%
 # ロジック部
 entryLength=35
 entryPoint=0.7
@@ -69,15 +92,18 @@ df['sell'] = df['high'].rolling(entryLength).max() * (1+entryPoint/100)
 df['buy'] = df['low'].rolling(entryLength).min() * (1-entryPoint/100)
 print( df )
 
+# %%
 # 指値位置補正(post only)
 df['limit'] = df['open'].shift(-1)
 df['buy'] = df[['buy', 'limit']].min(axis='columns')
 df['sell'] = df[['sell', 'limit']].max(axis='columns')
 
+# %%
 # 約定判断
 df['long'] = df['low'] < df['buy'].shift(1)    # 買い指値ヒット
 df['short'] = df['high'] > df['sell'].shift(1) # 売り指値ヒット
 
+# %%
 # ポジション計算部（ドテン＆ピラミッディング）
 pyramiding=3
 df['order'] = 0
@@ -89,11 +115,13 @@ df['pos'] = df['pos'].where(df['pos']<=pyramiding,pyramiding )
 df['pos'] = df['pos'].where(df['pos']>=-pyramiding,-pyramiding )
 print( df )
 
+# %%
 # 約定価格
 df['exec_price'] = df['close']
 df['exec_price'] = df['buy'].where(df['long'].shift(-1),df['exec_price'])
 df['exec_price'] = df['sell'].where(df['short'].shift(-1),df['exec_price'])
 
+# %%
 # 累積損益計算
 commision=-0.025
 df['pos'] /= pyramiding
@@ -102,17 +130,21 @@ df['commision'] = df['exec_price'] * commision / 100 * abs(df['pos']-df['pos'].s
 df['profit'] = df['return']*df['pos'] -df['commision']
 df['pnl'] = df['profit'].cumsum()
 
+# %%
 # ポジション変化が有ったところだけを抽出
 df_only_hit = df[df['pos'].diff(1)!=0]
 
+# %%
 # 前後1日間のボトム/ピークの箇所だけをデータを適当に抽出して間引く(全部プロットしたら時間かかるため）
 period_day = int(86400 / (df.index[-1].to_pydatetime().timestamp()-df.index[-2].to_pydatetime().timestamp()) )
 df_bottom_peak = df[df['low']==df['low'].rolling(period_day,center=True).min()]  # ボトム部
 df_top_peak = df[df['high']==df['high'].rolling(period_day,center=True).max()]  # トップ部
 
+# %%
 # ポジション変化したところとボトムピーク部と最終行を結合してプロットするデータを用意する
 df = pd.concat( [df_only_hit, df_bottom_peak, df_top_peak, df.tail(1)] ).sort_index().drop_duplicates()
 
+# %%
 # 損益グラフプロット
 fig = plt.figure()
 ax1 = fig.subplots()
