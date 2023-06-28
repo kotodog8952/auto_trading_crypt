@@ -10,6 +10,14 @@ class SmaCross(bt.Strategy):
         self.crossover = bt.ind.CrossOver(sma1, sma2)  # クロスオーバー信号
 
     def next(self):
+        portfolio_value = self.broker.get_value()
+
+        # If portfolio value is below zero, exit any existing positions and do not initiate new trades
+        if portfolio_value < 0:
+            if self.position:
+                self.log('Closing position, %.2f' % self.data.close[0])
+                self.close()  # Close the position
+
         if not self.position:  # ポジションがない場合
             if self.crossover > 0:  # クロスオーバーが「ゴールデンクロス」を示す場合
                 self.buy()  # 買う
@@ -18,26 +26,47 @@ class SmaCross(bt.Strategy):
 
 
 class SimpleStrategy(bt.Strategy):
+    params = (
+        ('max_position_size_ratio', 1/3),
+    )
+
+    def __init__(self):
+        self.initial_portfolio_value = self.broker.get_value()
+        self.max_position_size = self.initial_portfolio_value * self.params.max_position_size_ratio
 
     def log(self, text, dt=None):
         dt = dt or self.datas[0].datetime.date(0)
         print('%s, %s' % (dt.isoformat(), text))
 
     def next(self):
-        if not self.position:  # ポジションがない場合
-            if self.data.close[0] > self.data.open[0]:  # 終値が開始価格よりも高い場合
-                self.log('BUY CREATE, %.2f' % self.data.close[0])
-                self.buy()  # 購入する
-            elif self.data.close[0] < self.data.open[0]:  # 終値が開始価格よりも低い場合
-                self.log('SELL SHORT, %.2f' % self.data.close[0])
-                self.sell()  # 空売り（ショート）する
-        else:  # ポジションがある場合
-            if self.position.size > 0 and self.data.close[0] < self.data.open[0]:  # 買いポジションがあり、終値が開始価格よりも低い場合
-                self.log('SELL CREATE, %.2f' % self.data.close[0])
-                self.sell()  # 売却する
-            elif self.position.size < 0 and self.data.close[0] > self.data.open[0]:  # 売りポジションがあり、終値が開始価格よりも高い場合
-                self.log('BUY COVER, %.2f' % self.data.close[0])
-                self.buy()  # 買い戻し（ショートカバー）する
+        # Check the current value of the portfolio
+        portfolio_value = self.broker.get_value()
+
+        # If portfolio value is below zero, exit any existing positions and do not initiate new trades
+        if portfolio_value < 0:
+            if self.position:
+                self.log('Closing position, %.2f' % self.data.close[0])
+                self.close()  # Close the position
+        else:
+            # Do not open new position if it would exceed maximum position size
+            if self.position.size + self.data.close[0] > self.max_position_size:
+                return
+            
+            if not self.position:  # no position is open
+                if self.data.close[0] > self.data.open[0]:  # closing price is greater than opening price
+                    self.log('BUY CREATE, %.2f' % self.data.close[0])
+                    self.buy()  # buy
+                elif self.data.close[0] < self.data.open[0]:  # closing price is less than opening price
+                    self.log('SELL SHORT, %.2f' % self.data.close[0])
+                    self.sell()  # short sell
+            else:  # a position is open
+                if self.position.size > 0 and self.data.close[0] < self.data.open[0]:  # if long position and closing price is less than opening price
+                    self.log('SELL CREATE, %.2f' % self.data.close[0])
+                    self.sell()  # sell
+                elif self.position.size < 0 and self.data.close[0] > self.data.open[0]:  # if short position and closing price is greater than opening price
+                    self.log('BUY COVER, %.2f' % self.data.close[0])
+                    self.buy()  # short cover
+
 
 
 class HigeCatchStrategy(bt.Strategy):
