@@ -2,7 +2,7 @@ import backtrader as bt
 
 # 戦略クラスの定義
 class SmaCross(bt.Strategy):
-    params = (('pfast', 10), ('pslow', 30),)  # パラメータの設定
+    params = (('pfast', 5), ('pslow', 20),)  # パラメータの設定
 
     def __init__(self):
         sma1 = bt.ind.SMA(period=self.p.pfast)  # 短期移動平均
@@ -49,8 +49,8 @@ class SimpleStrategy(bt.Strategy):
                 self.close()  # Close the position
         else:
             # Do not open new position if it would exceed maximum position size
-            if self.position.size + self.data.close[0] > self.max_position_size:
-                return
+            # if self.position.size + self.data.close[0] > self.max_position_size:
+            #     return
             
             if not self.position:  # no position is open
                 if self.data.close[0] > self.data.open[0]:  # closing price is greater than opening price

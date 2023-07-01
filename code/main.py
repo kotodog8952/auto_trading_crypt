@@ -21,6 +21,7 @@ sys.path.append('./code/utils')
 sys.path.append('./code/strategies')
 from utils.settings import *
 from utils.strategies import *
+import params
 import matplotlib.pyplot as plt
 import pybybit
 from datetime import datetime, timedelta
@@ -31,6 +32,7 @@ import pandas as pd
 import matplotlib.pyplot as pltß
 import os
 from datetime import datetime
+import argparse
 
 def plot_monthly_trades(df, trades, save_dir):
     # データを月ごとに分割
@@ -73,14 +75,12 @@ def plot_monthly_trades(df, trades, save_dir):
 
 # %%
 # BybitのAPIに接続します。
-
-
-def get_data(start_date: datetime, end_date: datetime, client: pybybit.api.API ):
+def get_data(start_date: datetime, end_date: datetime, client: pybybit.api.API, symbol: str,interval: str, limit: int):
 
     df = pd.DataFrame()
     current_date = start_date
     while current_date < end_date:
-        response = client.rest.inverse.public_kline_list(symbol='BTCUSD', interval='15', from_=int(current_date.timestamp()), limit=200)
+        response = client.rest.inverse.public_kline_list(symbol=symbol, interval=interval, from_=int(current_date.timestamp()), limit=limit)
         data = response.json()
         temp_df = pd.DataFrame(data['result'])
         # temp_df.columns = ['symbol', 'interval', 'open_time', 'open', 'high', 'low', 'close', 'volume', 'turnover']
@@ -100,12 +100,12 @@ def get_data(start_date: datetime, end_date: datetime, client: pybybit.api.API )
     df = df[start_date:end_date] # Make sure the dataframe is within the required date range.
     return df
 
-def run_backtest(df, start_portfolio, save_dir, start_date, strategy):
+def run_backtest(df, start_portfolio, save_dir, start_date, commission, strategy):
     # Create a cerebro
     cerebro = bt.Cerebro()
-    
-    # Set the commission - 0.06% ... divide by 100 to remove the %
-    cerebro.broker.setcommission(commission=0.0006)
+
+    # Set the commission 
+    cerebro.broker.setcommission(commission=commission)
 
     # Create a data feed
     data = bt.feeds.PandasData(dataname=df)
@@ -152,17 +152,18 @@ def run_backtest(df, start_portfolio, save_dir, start_date, strategy):
 
     return formatted_transactions
 
-def main():
+def main(args):
+
     client = pybybit.API(key=api_key, secret=secret_key)
 
     # Get today's date
-    end_date = datetime.now() - relativedelta(day=1)
+    end_date = datetime.strptime(args.end_date, '%Y%m%d')
 
     # Get the date six months ago
     start_date = end_date - relativedelta(months=6)
 
     # Get the data for the whole period
-    df = get_data(start_date, end_date, client)
+    df = get_data(start_date, end_date, client, args.symbol, args.interval, args.limit)
 
     # 現在の日時を取得し、フォルダ名の形式に変換
     now = datetime.now()
@@ -174,7 +175,7 @@ def main():
     os.makedirs(save_dir, exist_ok=True)
 
     # Get the start date of each month
-    start_dates = [start_date.replace(day=1) + relativedelta(months=i) for i in range(6)]
+    start_dates = [start_date.replace(day=1) + relativedelta(months=i) for i in range(args.backtest_period)]
 
     # Get the end date of each month
     end_dates = [start_date + relativedelta(months=1, days=-1) for start_date in start_dates]
@@ -183,10 +184,25 @@ def main():
     for start_date, end_date in zip(start_dates, end_dates):
         print(f"Running backtest for {start_date.strftime('%Y-%m')}")
         df_month = df[start_date:end_date]
-        trades = run_backtest(df_month, 10000, save_dir, start_date, SimpleStrategy)
+        trades = run_backtest(df_month, args.start_portfolio, save_dir, start_date, args.commission, args.strategy)
         # Plot the trades
         plot_monthly_trades(df_month, trades, save_dir)
 
 if __name__ == '__main__':
 
-    main()
+    parser = argparse.ArgumentParser(description='自動売買bot作成に関するパラメータ設定')
+
+    # 引数設定
+    parser.add_argument('--backtest_period', help='バックテスト期間(default: 6ヶ月)', type=int, default=6)
+    parser.add_argument('--end_date', help='バックテスト終了日', type=str, default='20230601')
+    parser.add_argument('--interval', help='蝋燭足の時間軸', type=str, default='D')
+    parser.add_argument('--symbol', help='売買対象銘柄(default: BTC)', type=str, default='BTCUSD')
+    parser.add_argument('--limit', help='一度に取得する蝋燭足の上限', type=int, default=200)
+    parser.add_argument('--commission', help='売買に伴う手数料', type=int, default=0.0006)
+    parser.add_argument('--strategy', help='売買時の戦略', type=bt.Strategy, default=HigeCatchStrategy)
+    parser.add_argument('--start_portfolio', help='各月バックテスト開始時のポートフォリオ', type=int, default=10000)
+
+    args = parser.parse_args()
+
+    # メイン関数実行
+    main(args=args)
