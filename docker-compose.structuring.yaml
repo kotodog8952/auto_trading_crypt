@@ -1,0 +1,24 @@
+version: '3'
+networks:
+  backtest:
+
+services:
+  structuring:
+    container_name: structuring
+    build:
+      context: ./images/structuring/
+      dockerfile: Dockerfile
+    image: auto_trading_crypt_structuring
+    networks:
+      - backtest
+    stdin_open: true
+    tty: true
+    volumes:
+      # - ./data/structuring/input:${CONTAINER_DIR}/structuring/input
+      # - ./data/structuring/output:${CONTAINER_DIR}/structuring/output
+      - ./api_key/:/opt/ml/api_key
+      - ./data/raw:/opt/ml/input
+      - ./data/structuring/:/opt/ml/output
+      - ./utils:/opt/ml/utils
+      - ./container/structuring/code:/opt/ml/code
+
