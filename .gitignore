@@ -1,0 +1,5 @@
+*.json
+.env
+./api_key/
+Users/
+.DS_Store
