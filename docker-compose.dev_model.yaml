@@ -1,0 +1,24 @@
+version: '3'
+networks:
+  backtest:
+
+services:
+  structuring:
+    container_name: dev_model
+    build:
+      context: ./images/dev_model/
+      dockerfile: Dockerfile
+    image: auto_trading_crypt_dev_model
+    # networks:
+    #   - backtest
+    stdin_open: true
+    tty: true
+    volumes:
+      # - ./data/structuring/input:${CONTAINER_DIR}/structuring/input
+      # - ./data/structuring/output:${CONTAINER_DIR}/structuring/output
+      - ./api_key/:/opt/ml/api_key
+      - ./data/raw:/opt/ml/input
+      - ./data/dev_model/:/opt/ml/output
+      - ./utils:/opt/ml/utils
+      - ./container/dev_model/code:/opt/ml/code
+

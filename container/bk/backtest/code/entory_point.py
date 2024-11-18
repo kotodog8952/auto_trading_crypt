@@ -21,7 +21,7 @@ sys.path.append('./code/utils')
 sys.path.append('./code/strategies')
 from utils.settings import *
 from utils.strategies import *
-import params
+
 import matplotlib.pyplot as plt
 import pybybit
 from datetime import datetime, timedelta
@@ -75,30 +75,7 @@ def plot_monthly_trades(df, trades, save_dir):
 
 # %%
 # BybitのAPIに接続します。
-def get_data(start_date: datetime, end_date: datetime, client: pybybit.api.API, symbol: str,interval: str, limit: int):
 
-    df = pd.DataFrame()
-    current_date = start_date
-    while current_date < end_date:
-        response = client.rest.inverse.public_kline_list(symbol=symbol, interval=interval, from_=int(current_date.timestamp()), limit=limit)
-        data = response.json()
-        temp_df = pd.DataFrame(data['result'])
-        # temp_df.columns = ['symbol', 'interval', 'open_time', 'open', 'high', 'low', 'close', 'volume', 'turnover']
-        temp_df['opentime'] = pd.to_datetime(temp_df['open_time'], unit='s')
-        temp_df.set_index('opentime', inplace=True)
-        temp_df.index = pd.to_datetime(temp_df.index, format='%Y-%m-%d')
-        temp_df['open_time'] = pd.to_datetime(temp_df['open_time'], unit='s')
-        temp_df['open'] = temp_df['open'].astype(float)
-        temp_df['high'] = temp_df['high'].astype(float)
-        temp_df['low'] = temp_df['low'].astype(float)
-        temp_df['close'] = temp_df['close'].astype(float)
-        temp_df['volume'] = temp_df['volume'].astype(float)
-        # df = df.append(temp_df)
-        df = pd.concat([df, temp_df])
-        current_date = df.index[-1] + timedelta(minutes=15)
-    df.columns = ['symbol', 'interval', 'open_time', 'open', 'high', 'low', 'close', 'volume', 'turnover']
-    df = df[start_date:end_date] # Make sure the dataframe is within the required date range.
-    return df
 
 def run_backtest(df, start_portfolio, save_dir, start_date, commission, strategy):
     # Create a cerebro
@@ -199,7 +176,7 @@ if __name__ == '__main__':
     parser.add_argument('--symbol', help='売買対象銘柄(default: BTC)', type=str, default='BTCUSD')
     parser.add_argument('--limit', help='一度に取得する蝋燭足の上限', type=int, default=200)
     parser.add_argument('--commission', help='売買に伴う手数料', type=int, default=0.0006)
-    parser.add_argument('--strategy', help='売買時の戦略', type=bt.Strategy, default=HigeCatchStrategy)
+    parser.add_argument('--strategy', help='売買時の戦略', type=bt.Strategy, default=SimpleStrategy)
     parser.add_argument('--start_portfolio', help='各月バックテスト開始時のポートフォリオ', type=int, default=10000)
 
     args = parser.parse_args()

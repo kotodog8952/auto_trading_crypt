@@ -1,0 +1,8 @@
+pybybit
+pandas
+matplotlib
+dateutil
+ruamel
+Ipykernel
+aiohttp
+quandl

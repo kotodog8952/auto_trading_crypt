@@ -1,5 +1,45 @@
 import backtrader as bt
 
+class BaseStrategy(bt.Strategy):
+
+    def __init__(self):
+        self.order = None
+        self.price = None
+        self.comm = None
+        self.num_win = 0
+        self.num_loss = 0
+        self.total_trade = 0
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+
+        if order.status in [order.Completed]:
+            if order.isbuy():
+                self.log(f'BUY EXECUTED, Price: {order.executed.price}, Cost: {order.executed.value}, Comm: {order.executed.comm}')
+                self.price = order.executed.price
+            else:
+                self.log(f'SELL EXECUTED, Price: {order.executed.price}, Cost: {order.executed.value}, Comm: {order.executed.comm}')
+                if order.executed.price > self.price:
+                    self.num_win += 1
+                else:
+                    self.num_loss += 1
+                self.total_trade += 1
+
+            self.bar_executed = len(self)
+
+        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+            self.log('Order Canceled/Margin/Rejected')
+
+        self.order = None
+
+    def stop(self):
+        self.log(f'(Fast Period {self.params.pfast}, Slow Period {self.params.pslow}) Ending Value {self.broker.getvalue()}')
+        win_rate = self.num_win / self.total_trade if self.total_trade else 0.0
+        with open('win_rate.txt', 'a') as f:
+            f.write(f'Fast Period: {self.params.pfast}, Slow Period: {self.params.pslow}, Win Rate: {win_rate}\n')
+
+
 # 戦略クラスの定義
 class SmaCross(bt.Strategy):
     params = (('pfast', 5), ('pslow', 20),)  # パラメータの設定
@@ -25,18 +65,21 @@ class SmaCross(bt.Strategy):
             self.close()  # ポジションをクローズする
 
 
-class SimpleStrategy(bt.Strategy):
-    params = (
-        ('max_position_size_ratio', 1/3),
-    )
+class SimpleStrategy(BaseStrategy):
+    # params = (
+    #     ('max_position_size_ratio', 1/3),
+    # )
 
     def __init__(self):
+        super().__init__()
         self.initial_portfolio_value = self.broker.get_value()
-        self.max_position_size = self.initial_portfolio_value * self.params.max_position_size_ratio
-
+        # self.max_position_size = self.initial_portfolio_value * self.params.max_position_size_ratio
+        
+        
     def log(self, text, dt=None):
-        dt = dt or self.datas[0].datetime.date(0)
-        print('%s, %s' % (dt.isoformat(), text))
+            dt = dt or self.datas[0].datetime.date(0)
+            print('%s, %s' % (dt.isoformat(), text))
+            
 
     def next(self):
         # Check the current value of the portfolio

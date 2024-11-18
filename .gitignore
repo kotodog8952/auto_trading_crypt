@@ -1,0 +1,7 @@
+*.json
+.env
+./api_key/
+.DS_Store
+*.csv
+*.ipynb
+*.png
