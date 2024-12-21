@@ -1,6 +1,0 @@
-202212 Final Portfolio Value: 9824.9606
-202301 Final Portfolio Value: 10000.0
-202302 Final Portfolio Value: 9048.071800000007
-202303 Final Portfolio Value: 9412.328700000004
-202304 Final Portfolio Value: 9429.535100000006
-202305 Final Portfolio Value: 10000.0
